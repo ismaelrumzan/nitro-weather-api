@@ -1,7 +1,7 @@
-import { eventHandler, getRouterParam, getQuery, createError } from 'h3';
+import { getRouterParam, getQuery, createError } from 'h3';
 import { $fetch } from 'ofetch';
- 
-export default eventHandler(async (event) => {
+
+export default defineCachedEventHandler(async (event) => {
   const cityParam = getRouterParam(event, 'city');
   if (!cityParam) {
     throw createError({ statusCode: 400, statusMessage: 'city is required' });
@@ -64,4 +64,16 @@ export default eventHandler(async (event) => {
     units: units === 'imperial' ? 'imperial' : 'metric',
     current: forecast.current,
   };
+}, {
+  maxAge: 60, // Cache for 60 seconds 
+  name: 'weatherByCity',
+  getKey: (event) => {
+    const cityParam = getRouterParam(event, 'city');
+    const { units } = getQuery(event) as { units?: 'metric' | 'imperial' };
+    const city = cityParam ? decodeURIComponent(cityParam) : 'unknown';
+    const normalizedUnits = units === 'imperial' ? 'imperial' : 'metric';
+    return `${city}-${normalizedUnits}`;
+  },
+  varies: ['units'], // Consider units query parameter for caching
+  swr: true // Enable stale-while-revalidate behavior
 });
